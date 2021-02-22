@@ -1,8 +1,10 @@
 package com.ceylonlab.is_device_secure
 
 import android.app.KeyguardManager
+import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.os.Build
+import android.provider.Settings
 
 import androidx.annotation.NonNull;
 
@@ -27,6 +29,8 @@ public class IsDeviceSecurePlugin : FlutterPlugin, MethodCallHandler {
     }
 
     companion object {
+        private const val PASSWORD_TYPE_KEY = "lockscreen.password_type"
+
         @JvmStatic
         fun registerWith(registrar: Registrar) {
             val channel = MethodChannel(registrar.messenger(), "is_device_secure")
@@ -50,18 +54,18 @@ public class IsDeviceSecurePlugin : FlutterPlugin, MethodCallHandler {
 
     private fun isDeviceSecured(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val keyguardManager = getSystemService(KeyguardManager::class.java)
+            val keyguardManager = applicationContext.getSystemService(KeyguardManager::class.java)
             keyguardManager.isDeviceSecure
         } else {
             // keyguardManager.isKeyguardSecure "returns true if a PIN, pattern or password is set or a SIM card is locked."
             // We need to ignore the "SIM locked" bit, we can do this using the DevicePolicyManager
             // We also don't need to worry about Biometrics as support for these wasn't added until Marshmallow
-            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+            val keyguardManager = applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
             if (!keyguardManager.isKeyguardSecure) return false
 
-            return when (Settings.Secure.getInt(contentResolver, PASSWORD_TYPE_KEY, DevicePolicyManager.PASSWORD_QUALITY_SOMETHING)) {
+            return when (Settings.Secure.getInt(applicationContext.contentResolver, PASSWORD_TYPE_KEY, DevicePolicyManager.PASSWORD_QUALITY_SOMETHING)) {
                 DevicePolicyManager.PASSWORD_QUALITY_SOMETHING -> { // Pattern
-                    Settings.Secure.getInt(contentResolver, Settings.Secure.LOCK_PATTERN_ENABLED, 0) == 1
+                    Settings.Secure.getInt(applicationContext.contentResolver, Settings.Secure.LOCK_PATTERN_ENABLED, 0) == 1
                 }
                 DevicePolicyManager.PASSWORD_QUALITY_ALPHANUMERIC, // Password
                 DevicePolicyManager.PASSWORD_QUALITY_ALPHABETIC, // Password
@@ -70,9 +74,5 @@ public class IsDeviceSecurePlugin : FlutterPlugin, MethodCallHandler {
                 else -> false
             }
         }
-    }
-
-    companion object {
-        private const val PASSWORD_TYPE_KEY = "lockscreen.password_type"
     }
 }
